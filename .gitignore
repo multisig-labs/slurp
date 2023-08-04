@@ -1,0 +1,9 @@
+*.swp
+*.log
+*.db
+*~
+.DS_Store
+.env
+
+bin/
+_private
