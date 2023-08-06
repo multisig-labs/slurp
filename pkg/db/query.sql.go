@@ -9,84 +9,103 @@ import (
 	"context"
 )
 
-const createBlock = `-- name: CreateBlock :one
-INSERT INTO blocks_p (
-  height, id, ts, bytes
+const createRawBlockP = `-- name: CreateRawBlockP :exec
+INSERT OR IGNORE INTO raw_blocks_p (
+  idx, bytes
 ) VALUES (
-  ?, ?, ?, ?
+  ?, ?
 )
-RETURNING height, id, ts, bytes
 `
 
-type CreateBlockParams struct {
-	Height int64
-	ID     string
-	Ts     int64
-	Bytes  []byte
+type CreateRawBlockPParams struct {
+	Idx   int64
+	Bytes []byte
 }
 
-func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (BlocksP, error) {
-	row := q.db.QueryRowContext(ctx, createBlock,
-		arg.Height,
+func (q *Queries) CreateRawBlockP(ctx context.Context, arg CreateRawBlockPParams) error {
+	_, err := q.db.ExecContext(ctx, createRawBlockP, arg.Idx, arg.Bytes)
+	return err
+}
+
+const createTxP = `-- name: CreateTxP :exec
+INSERT OR IGNORE INTO txs_p (
+  idx, id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
+) VALUES (
+  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+`
+
+type CreateTxPParams struct {
+	Idx           int64
+	ID            string
+	Height        int64
+	BlockID       string
+	TypeID        int64
+	UnsignedTx    string
+	UnsignedBytes string
+	SigBytes      string
+	SignerAddrP   string
+	SignerAddrC   string
+	Ts            int64
+}
+
+func (q *Queries) CreateTxP(ctx context.Context, arg CreateTxPParams) error {
+	_, err := q.db.ExecContext(ctx, createTxP,
+		arg.Idx,
 		arg.ID,
+		arg.Height,
+		arg.BlockID,
+		arg.TypeID,
+		arg.UnsignedTx,
+		arg.UnsignedBytes,
+		arg.SigBytes,
+		arg.SignerAddrP,
+		arg.SignerAddrC,
 		arg.Ts,
-		arg.Bytes,
 	)
-	var i BlocksP
-	err := row.Scan(
-		&i.Height,
-		&i.ID,
-		&i.Ts,
-		&i.Bytes,
-	)
+	return err
+}
+
+const getRawBlockP = `-- name: GetRawBlockP :one
+SELECT idx, bytes FROM raw_blocks_p
+WHERE idx = ? LIMIT 1
+`
+
+func (q *Queries) GetRawBlockP(ctx context.Context, idx int64) (RawBlocksP, error) {
+	row := q.db.QueryRowContext(ctx, getRawBlockP, idx)
+	var i RawBlocksP
+	err := row.Scan(&i.Idx, &i.Bytes)
 	return i, err
 }
 
-const getBlock = `-- name: GetBlock :one
-SELECT height, id, ts, bytes FROM blocks_p
-WHERE height = ? LIMIT 1
+const getTxP = `-- name: GetTxP :one
+SELECT idx, id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts, memo, node_id, validator_start_ts, validator_end_ts, validator_weight, source_chain, destination_chain, rewards_addr FROM txs_p
+WHERE idx = ? LIMIT 1
 `
 
-func (q *Queries) GetBlock(ctx context.Context, height int64) (BlocksP, error) {
-	row := q.db.QueryRowContext(ctx, getBlock, height)
-	var i BlocksP
+func (q *Queries) GetTxP(ctx context.Context, idx int64) (TxsP, error) {
+	row := q.db.QueryRowContext(ctx, getTxP, idx)
+	var i TxsP
 	err := row.Scan(
-		&i.Height,
+		&i.Idx,
 		&i.ID,
+		&i.Height,
+		&i.BlockID,
+		&i.TypeID,
+		&i.UnsignedTx,
+		&i.UnsignedBytes,
+		&i.SigBytes,
+		&i.SignerAddrP,
+		&i.SignerAddrC,
 		&i.Ts,
-		&i.Bytes,
+		&i.Memo,
+		&i.NodeID,
+		&i.ValidatorStartTs,
+		&i.ValidatorEndTs,
+		&i.ValidatorWeight,
+		&i.SourceChain,
+		&i.DestinationChain,
+		&i.RewardsAddr,
 	)
 	return i, err
-}
-
-const listBlocks = `-- name: ListBlocks :many
-SELECT height, id, ts, bytes FROM blocks_p
-`
-
-func (q *Queries) ListBlocks(ctx context.Context) ([]BlocksP, error) {
-	rows, err := q.db.QueryContext(ctx, listBlocks)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BlocksP
-	for rows.Next() {
-		var i BlocksP
-		if err := rows.Scan(
-			&i.Height,
-			&i.ID,
-			&i.Ts,
-			&i.Bytes,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

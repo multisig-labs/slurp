@@ -9,6 +9,7 @@ default:
   @just --list --unsorted
 
 build:
+	sqlc generate
 	CGO_ENABLED=1 go build -ldflags "{{LDFLAGS}}" -o bin/slurp main.go
 
 install: build
@@ -16,6 +17,13 @@ install: build
 
 # Delete and recreate a sqlite db
 create-db:
-	-rm slurp.db
+	-trash -v slurp.db*
 	cat schema.sql | sqlite3 slurp.db
-	sqlc generate
+
+dev-get:
+	bin/slurp pchain --node-url https://indexer-demo.avax.network 6500000 10000
+
+dev-process:
+  bin/slurp process-p 6500000 10000
+	
+

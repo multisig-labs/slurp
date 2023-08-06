@@ -1,0 +1,76 @@
+# Install https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+@url = https://glacier-api.avax.network
+###
+GET {{url}}/v1/networks/mainnet/blockchains/p-chain/blocks/2wanyHo4KzPU6GHxpmfoJZrsMjBgGN4kjPZkaW3pE6rM4J1LeR
+content-type: application/json
+
+###
+POST {{chainstack}}/ext/bc/P
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "platform.getBlock",
+  "params": {
+    "blockID": "112C8HoR1sf2uD45Qsv6YngJdwuGH1UawPjmaMnk4mHLoh5hD",
+    "encoding": "json"
+  }
+}
+
+###
+POST {{chainstack}}/ext/bc/P
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "platform.getTx",
+  "params": {
+    "txID": "TE22SsFhU2y1VJbALsGJMfuvHCDsfkkXWnG2fXs3nyVzScbjy",
+    "encoding": "json"
+  }
+}
+
+###
+
+POST {{nuc}}/ext/bc/P
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "platform.getBlockByHeight",
+  "params": {
+    "height": "6000019",
+    "encoding": "json"
+  }
+}
+
+###
+POST https://indexer-demo.avax.network/ext/index/P/block
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "index.getContainerRange",
+  "params": {
+    "startIndex": 1,
+    "numToFetch": 50,
+    "encoding": "hex"
+  }
+}
+
+###
+POST {{chainstack}}/ext/bc/P
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "platform.getHeight",
+  "params": {}
+}
+
+###

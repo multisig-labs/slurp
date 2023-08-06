@@ -1,6 +1,6 @@
 *.swp
 *.log
-*.db
+*.db*
 *~
 .DS_Store
 .env
