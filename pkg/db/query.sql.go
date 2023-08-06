@@ -7,64 +7,94 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
-const createBlock = `-- name: CreateBlock :one
-INSERT INTO blocks_p (
-  height, id, ts, bytes
+const createBlockP = `-- name: CreateBlockP :exec
+INSERT OR IGNORE INTO blocks_p (
+  idx, id, bytes, decoded, type_id, height, ts, parent_id
+) VALUES (
+  ?, ?, ?, ?, ?, ?, ?, ?
+)
+`
+
+type CreateBlockPParams struct {
+	Idx      int64
+	ID       string
+	Bytes    []byte
+	Decoded  int64
+	TypeID   sql.NullInt64
+	Height   sql.NullInt64
+	Ts       sql.NullInt64
+	ParentID sql.NullString
+}
+
+func (q *Queries) CreateBlockP(ctx context.Context, arg CreateBlockPParams) error {
+	_, err := q.db.ExecContext(ctx, createBlockP,
+		arg.Idx,
+		arg.ID,
+		arg.Bytes,
+		arg.Decoded,
+		arg.TypeID,
+		arg.Height,
+		arg.Ts,
+		arg.ParentID,
+	)
+	return err
+}
+
+const createTxP = `-- name: CreateTxP :exec
+INSERT OR IGNORE INTO txs_p (
+  id, block_id, type_id, unsigned_tx
 ) VALUES (
   ?, ?, ?, ?
 )
-RETURNING height, id, ts, bytes
 `
 
-type CreateBlockParams struct {
-	Height int64
-	ID     string
-	Ts     int64
-	Bytes  []byte
+type CreateTxPParams struct {
+	ID         string
+	BlockID    string
+	TypeID     int64
+	UnsignedTx string
 }
 
-func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (BlocksP, error) {
-	row := q.db.QueryRowContext(ctx, createBlock,
-		arg.Height,
+func (q *Queries) CreateTxP(ctx context.Context, arg CreateTxPParams) error {
+	_, err := q.db.ExecContext(ctx, createTxP,
 		arg.ID,
-		arg.Ts,
-		arg.Bytes,
+		arg.BlockID,
+		arg.TypeID,
+		arg.UnsignedTx,
 	)
+	return err
+}
+
+const getBlockP = `-- name: GetBlockP :one
+SELECT idx, id, bytes, decoded, type_id, height, ts, parent_id FROM blocks_p
+WHERE idx = ? LIMIT 1
+`
+
+func (q *Queries) GetBlockP(ctx context.Context, idx int64) (BlocksP, error) {
+	row := q.db.QueryRowContext(ctx, getBlockP, idx)
 	var i BlocksP
 	err := row.Scan(
-		&i.Height,
+		&i.Idx,
 		&i.ID,
-		&i.Ts,
 		&i.Bytes,
+		&i.Decoded,
+		&i.TypeID,
+		&i.Height,
+		&i.Ts,
+		&i.ParentID,
 	)
 	return i, err
 }
 
-const getBlock = `-- name: GetBlock :one
-SELECT height, id, ts, bytes FROM blocks_p
-WHERE height = ? LIMIT 1
+const listBlocksP = `-- name: ListBlocksP :many
+SELECT idx, id, bytes, decoded, type_id, height, ts, parent_id FROM blocks_p
 `
 
-func (q *Queries) GetBlock(ctx context.Context, height int64) (BlocksP, error) {
-	row := q.db.QueryRowContext(ctx, getBlock, height)
-	var i BlocksP
-	err := row.Scan(
-		&i.Height,
-		&i.ID,
-		&i.Ts,
-		&i.Bytes,
-	)
-	return i, err
-}
-
-const listBlocks = `-- name: ListBlocks :many
-SELECT height, id, ts, bytes FROM blocks_p
-`
-
-func (q *Queries) ListBlocks(ctx context.Context) ([]BlocksP, error) {
-	rows, err := q.db.QueryContext(ctx, listBlocks)
+func (q *Queries) ListBlocksP(ctx context.Context) ([]BlocksP, error) {
+	rows, err := q.db.QueryContext(ctx, listBlocksP)
 	if err != nil {
 		return nil, err
 	}
@@ -73,10 +103,14 @@ func (q *Queries) ListBlocks(ctx context.Context) ([]BlocksP, error) {
 	for rows.Next() {
 		var i BlocksP
 		if err := rows.Scan(
-			&i.Height,
+			&i.Idx,
 			&i.ID,
-			&i.Ts,
 			&i.Bytes,
+			&i.Decoded,
+			&i.TypeID,
+			&i.Height,
+			&i.Ts,
+			&i.ParentID,
 		); err != nil {
 			return nil, err
 		}
@@ -89,4 +123,36 @@ func (q *Queries) ListBlocks(ctx context.Context) ([]BlocksP, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateBlockP = `-- name: UpdateBlockP :exec
+UPDATE blocks_p
+SET 
+  decoded = ?,
+  type_id = ?,
+  height = ?,
+  ts = ?,
+  parent_id = ?
+WHERE idx = ?
+`
+
+type UpdateBlockPParams struct {
+	Decoded  int64
+	TypeID   sql.NullInt64
+	Height   sql.NullInt64
+	Ts       sql.NullInt64
+	ParentID sql.NullString
+	Idx      int64
+}
+
+func (q *Queries) UpdateBlockP(ctx context.Context, arg UpdateBlockPParams) error {
+	_, err := q.db.ExecContext(ctx, updateBlockP,
+		arg.Decoded,
+		arg.TypeID,
+		arg.Height,
+		arg.Ts,
+		arg.ParentID,
+		arg.Idx,
+	)
+	return err
 }

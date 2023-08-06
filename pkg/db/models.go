@@ -4,11 +4,39 @@
 
 package db
 
-import ()
+import (
+	"database/sql"
+)
 
 type BlocksP struct {
-	Height int64
-	ID     string
-	Ts     int64
-	Bytes  []byte
+	Idx      int64
+	ID       string
+	Bytes    []byte
+	Decoded  int64
+	TypeID   sql.NullInt64
+	Height   sql.NullInt64
+	Ts       sql.NullInt64
+	ParentID sql.NullString
+}
+
+type TxsP struct {
+	ID               string
+	BlockID          string
+	TypeID           int64
+	UnsignedTx       string
+	Memo             sql.NullString
+	NodeID           sql.NullString
+	ValidatorStartTs sql.NullInt64
+	ValidatorEndTs   sql.NullInt64
+	ValidatorWeight  sql.NullInt64
+	SourceChain      sql.NullString
+	DestinationChain sql.NullString
+	OutputAddrs      sql.NullString
+	StakeAddrs       sql.NullString
+	RewardsAddrs     sql.NullString
+}
+
+type TypeID struct {
+	ID   int64
+	Name string
 }

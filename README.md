@@ -2,22 +2,35 @@
 
 Use the AvalancheGo Index API to slurp blocks into a sqlite database.
 
+## Useage
+
 ```
 brew install sqlc
-just create-db
 just build
-bin/slurp pchain --node-url https://indexer-demo.avax.network 0 100000
+just create-db
+# Slurp 7.5M raw blocks (roughly until 08-2023)
+bin/slurp pchain --node-url https://indexer-demo.avax.network 0 7500000
+# Now process the DB to parse the blocks and extract txs
+bin/slurp process-p 0 7500000
 ```
 
-## Schema
+## Interesting Queries
+
+```sql
+select count(*) count, memo from txs_p
+group by memo
+order by count desc;
+
+select count(*) count, node_id
+from txs_p
+where type_id = 14 -- AddValidatorTx
+group by node_id
+order by count desc;
+
+select count(*) count, rewards_addrs
+from txs_p
+where type_id = 14 -- AddValidatorTx
+group by rewards_addrs
+order by count desc
 
 ```
-CREATE TABLE blocks_p (
-  height integer NOT NULL, -- integer height of the block
-  id text NOT NULL,     -- base58 id of the block
-  ts integer NOT NULL,  -- timestamp the node accepted the block
-  bytes blob            -- raw bytes of the block
-);
-```
-
-The idea would be to first grab all raw P-chain blocks, then have a seperate command to go through those and deserialize them from the bytes and make new tables with the data as necessary.

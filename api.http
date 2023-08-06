@@ -1,0 +1,36 @@
+# Install https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+@url = https://glacier-api.avax.network
+@nuc = http://100.83.243.106:9650
+@chainstack = https://nd-058-850-167.p2pify.com/4e4706b8fc3a3bb4a5559c84671a1cf4
+###
+GET {{url}}/v1/networks/mainnet/blockchains/p-chain/blocks/2wanyHo4KzPU6GHxpmfoJZrsMjBgGN4kjPZkaW3pE6rM4J1LeR
+content-type: application/json
+
+###
+POST {{chainstack}}/ext/bc/P
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "platform.getBlock",
+  "params": {
+    "blockID": "yxi9hYozW8xisk4wE5cd9RqZxKiedJkdAhueqjgEGZR4wT9xx",
+    "encoding": "json"
+  }
+}
+
+###
+POST https://indexer-demo.avax.network/ext/index/P/block
+content-type: application/json
+
+{
+  "id": 0,
+  "jsonrpc": "2.0",
+  "method": "index.getContainerRange",
+  "params": {
+    "startIndex": 1,
+    "numToFetch": 50,
+    "encoding": "hex"
+  }
+}
