@@ -9,10 +9,16 @@ A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here
 ```
 # We require SQLite 3.42+ (built-in Mac one is too old)
 brew install sqlc just sqlite3
+
+# Need to activate the brew sqlite3 version with something like this
+# echo 'export PATH="/opt/homebrew/opt/sqlite/bin:$PATH"' >> ~/.zshrc
+
 just build
 just create-db
+
 # Slurp 7.5M raw blocks (roughly until 08-2023)
 bin/slurp pchain --node-url https://indexer-demo.avax.network 0 7500000
+
 # Now process the DB to parse the blocks and extract txs
 bin/slurp process-p 0 7500000
 ```
