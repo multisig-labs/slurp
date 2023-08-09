@@ -23,6 +23,10 @@ bin/slurp pchain --node-url https://indexer-demo.avax.network 0 7500000
 bin/slurp process-p 0 7500000
 ```
 
+## SQL FTW
+
+In keeping with the quick-and-dirty theme of this project, we use the `avalanchego` packages to marshal a block into JSON, then insert the JSON into a SQLite `text` column, and leverage generated columns and json functions to break out the pieces we are interested in into their own columns.
+
 ## Interesting Queries
 
 ```sql
