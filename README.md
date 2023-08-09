@@ -7,7 +7,8 @@ A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here
 ## Usage
 
 ```
-brew install sqlc
+# We require SQLite 3.42+ (built-in Mac one is too old)
+brew install sqlc just sqlite3
 just build
 just create-db
 # Slurp 7.5M raw blocks (roughly until 08-2023)
