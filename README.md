@@ -2,7 +2,7 @@
 
 Use the AvalancheGo Index API to slurp blocks into a sqlite database.
 
-A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here](http://gogopool.s3.amazonaws.com/slurp-mainnet.db.7z) (~7.5G zipped)
+A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here](https://gogopool.s3.amazonaws.com/slurp-mainnet.db.7z) (~7.5G zipped)
 
 ## Usage
 
