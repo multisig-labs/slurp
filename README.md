@@ -2,7 +2,11 @@
 
 Use the AvalancheGo Index API to slurp blocks into a sqlite database.
 
-A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here](https://gogopool.s3.amazonaws.com/slurp-mainnet.db.7z) (~7.5G zipped)
+A SQLite DB file containing the entire P-Chain (as of 8-2023) can be found [here](https://gogopool.s3.amazonaws.com/slurp-mainnet-processed.db.7z) (~5G zipped)
+
+## Data
+
+The `raw_blocks_p` table has a row for every index number, which is just an incrementing integer the indexer creates when indexing the chain. Once this table is populated with every block, we then process each block and save the transactions into the `txs_p` table.
 
 ## Usage
 
@@ -16,11 +20,17 @@ brew install sqlc just sqlite3
 just build
 just create-db
 
-# Slurp 7.5M raw blocks (roughly until 08-2023)
-bin/slurp pchain --node-url https://indexer-demo.avax.network 0 7500000
+# Find out latest chain height
+curl --request POST \
+  --url https://api.avax.network/ext/bc/P \
+  --header 'content-type: application/json' \
+  --data '{"id": 0,"jsonrpc": "2.0","method": "platform.getHeight","params": {}}'
 
-# Now process the DB to parse the blocks and extract txs
-bin/slurp process-p 0 7500000
+# Slurp the raw blocks
+bin/slurp pchain --node-url https://indexer-demo.avax.network 0 7827793
+
+# Now process the DB to parse the blocks starting at idx 0 and processing 7827793 blocks into transactions
+bin/slurp process-p 0 7827793
 ```
 
 ## SQL FTW
