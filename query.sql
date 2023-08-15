@@ -9,10 +9,14 @@ INSERT OR IGNORE INTO raw_blocks_p (
   ?, ?
 );
 
+-- name: GetTxP :one
+SELECT * FROM txs_p
+WHERE idx = ? LIMIT 1;
+
 -- name: CreateTxP :exec
 INSERT OR IGNORE INTO txs_p (
-  id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
+  idx, id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
 ) VALUES (
-  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
 

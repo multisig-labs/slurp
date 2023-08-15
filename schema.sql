@@ -6,7 +6,8 @@ CREATE TABLE raw_blocks_p
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE txs_p (
-  id text PRIMARY KEY,
+  idx integer PRIMARY KEY, -- index of this txs block in a particular node's index
+  id text NOT NULL,
   height integer NOT NULL,
   block_id text NOT NULL,
   type_id integer NOT NULL,
@@ -24,11 +25,16 @@ CREATE TABLE txs_p (
   source_chain text GENERATED ALWAYS AS (json_extract(unsigned_tx, '$.sourceChain')) STORED,
   destination_chain text GENERATED ALWAYS AS (json_extract(unsigned_tx, '$.destinationChain')) STORED,
   rewards_addr text GENERATED ALWAYS AS (json_extract(unsigned_tx, '$.rewardsOwner.addresses[0]')) STORED,
+  FOREIGN KEY(idx) REFERENCES raw_blocks_p(idx),
   FOREIGN KEY(type_id) REFERENCES types(id)
 ) STRICT, WITHOUT ROWID;
 
+CREATE INDEX txs_p_id ON txs_p(id);
+CREATE INDEX txs_p_height ON txs_p(height);
+CREATE INDEX txs_p_block_id ON txs_p(block_id);
 CREATE INDEX txs_p_type_id ON txs_p(type_id);
 CREATE INDEX txs_p_node_id ON txs_p(node_id);
+CREATE INDEX txs_p_ts ON txs_p(ts);
 CREATE INDEX txs_p_rewards_addr ON txs_p(rewards_addr);
 CREATE INDEX txs_p_signer_addr_p ON txs_p(signer_addr_p);
 CREATE INDEX txs_p_signer_addr_c ON txs_p(signer_addr_c);

@@ -93,11 +93,11 @@ func processPCmd() {
 	}{}
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
-	err := processBlocksP(gargs.DbFile, gargs.NodeURL, args.StartIdx, args.NumToProcess)
+	err := processBlocksP(gargs.DbFile, args.StartIdx, args.NumToProcess)
 	handleError(err)
 }
 
-func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToProcess int64) error {
+func processBlocksP(dbFileName string, startIdx uint64, numToProcess int64) error {
 	ctx := context.Background()
 	mainnetCtx := genMainnetCtx()
 
@@ -106,33 +106,38 @@ func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToPro
 	for i := int64(0); i < numToProcess; i++ {
 		idx := int64(startIdx) + i
 		if idx%1000 == 0 {
-			fmt.Println("Processing", idx)
+			fmt.Println("Processing idx:", idx)
 		}
+
+		// If we already processed this block, skip it
+		if _, err := queries.GetTxP(ctx, idx); err != sql.ErrNoRows {
+			continue
+		}
+
 		dbBlk, err := queries.GetRawBlockP(ctx, idx)
 		if err != nil {
-			return err
+			return fmt.Errorf("error GetRawBlockP idx %d: %v", idx, err)
 		}
 
 		// Get both the block and the marshalled json
 		blk, js, err := decodeBlock(mainnetCtx, dbBlk.Bytes)
 		if err != nil {
-			fmt.Printf("error idx %d: %v\n", idx, err)
-			return err
+			return fmt.Errorf("error decodeBlock idx %d: %v", idx, err)
 		}
 
 		height := blk.Height()
-		ts := gjson.Get(js, "time").Int()
 		// FYI Not all blocks have txs, and some blocks have more than one tx
-		// We are inserting the marshaled JSON and letting SQLite destructure via generated columns
+		// We are inserting the marshaled JSON for each tx and letting SQLite destructure via generated columns
 		txs := gjson.Get(js, "tx*")
 		if len(txs.Array()) > 0 {
 			for j, tx := range txs.Array() {
 				txid := tx.Get("id").String()
 				txjs := tx.Get("unsignedTx").String()
+				ts := gjson.Get(txjs, "time").Int()
 				unsignedBytes := blk.Txs()[j].Unsigned.Bytes()
 				unsignedBytesHex, err := formatting.Encode(formatting.Hex, unsignedBytes)
 				if err != nil {
-					fmt.Printf("error encoding unsignedBytesHex txid: %s err: %v\n", txid, err)
+					fmt.Printf("warning unable to encode unsignedBytesHex txid: %s err: %v\n", txid, err)
 					continue
 				}
 
@@ -148,11 +153,12 @@ func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToPro
 					sigBytesHex, _ = formatting.Encode(formatting.Hex, sigBytes[:])
 					recoveredAddrP, recoveredAddrC, err = recoverAddrs(unsignedBytes, sigBytes)
 					if err != nil {
-						fmt.Printf("error recoverAddrs txid: %s err: %v\n", txid, err)
+						fmt.Printf("warning unable to recoverAddrs idx: %d txid: %s err: %v\n", idx, txid, err)
 					}
 				}
 
 				p := db.CreateTxPParams{
+					Idx:           idx,
 					ID:            txid,
 					Height:        int64(height),
 					BlockID:       blk.ID().String(),
@@ -166,7 +172,7 @@ func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToPro
 				}
 				err = queries.CreateTxP(ctx, p)
 				if err != nil {
-					fmt.Printf("error creating txid %s blkid %s %v\n", txid, blk.ID().String(), err)
+					return fmt.Errorf("error CreateTxP idx: %d txid: %s %v", idx, txid, err)
 				}
 			}
 		}

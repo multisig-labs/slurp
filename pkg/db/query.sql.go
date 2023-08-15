@@ -29,13 +29,14 @@ func (q *Queries) CreateRawBlockP(ctx context.Context, arg CreateRawBlockPParams
 
 const createTxP = `-- name: CreateTxP :exec
 INSERT OR IGNORE INTO txs_p (
-  id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
+  idx, id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
 ) VALUES (
-  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
 type CreateTxPParams struct {
+	Idx           int64
 	ID            string
 	Height        int64
 	BlockID       string
@@ -50,6 +51,7 @@ type CreateTxPParams struct {
 
 func (q *Queries) CreateTxP(ctx context.Context, arg CreateTxPParams) error {
 	_, err := q.db.ExecContext(ctx, createTxP,
+		arg.Idx,
 		arg.ID,
 		arg.Height,
 		arg.BlockID,
@@ -73,5 +75,37 @@ func (q *Queries) GetRawBlockP(ctx context.Context, idx int64) (RawBlocksP, erro
 	row := q.db.QueryRowContext(ctx, getRawBlockP, idx)
 	var i RawBlocksP
 	err := row.Scan(&i.Idx, &i.Bytes)
+	return i, err
+}
+
+const getTxP = `-- name: GetTxP :one
+SELECT idx, id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts, memo, node_id, validator_start_ts, validator_end_ts, validator_weight, source_chain, destination_chain, rewards_addr FROM txs_p
+WHERE idx = ? LIMIT 1
+`
+
+func (q *Queries) GetTxP(ctx context.Context, idx int64) (TxsP, error) {
+	row := q.db.QueryRowContext(ctx, getTxP, idx)
+	var i TxsP
+	err := row.Scan(
+		&i.Idx,
+		&i.ID,
+		&i.Height,
+		&i.BlockID,
+		&i.TypeID,
+		&i.UnsignedTx,
+		&i.UnsignedBytes,
+		&i.SigBytes,
+		&i.SignerAddrP,
+		&i.SignerAddrC,
+		&i.Ts,
+		&i.Memo,
+		&i.NodeID,
+		&i.ValidatorStartTs,
+		&i.ValidatorEndTs,
+		&i.ValidatorWeight,
+		&i.SourceChain,
+		&i.DestinationChain,
+		&i.RewardsAddr,
+	)
 	return i, err
 }

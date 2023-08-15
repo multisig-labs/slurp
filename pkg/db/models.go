@@ -14,6 +14,7 @@ type RawBlocksP struct {
 }
 
 type TxsP struct {
+	Idx              int64
 	ID               string
 	Height           int64
 	BlockID          string
