@@ -21,10 +21,9 @@ create-db:
 	cat schema.sql | sqlite3 slurp.db
 
 dev-get:
-	echo "delete from blocks_p; delete from txs_p" | sqlite3 slurp.db
-	bin/slurp pchain --node-url https://indexer-demo.avax.network 6000000 10000
+	bin/slurp pchain --node-url https://indexer-demo.avax.network 6500000 10000
 
 dev-process:
-  bin/slurp process-p 6000000 10000
+  bin/slurp process-p 6500000 10000
 	
 

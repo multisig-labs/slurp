@@ -8,22 +8,22 @@ import (
 	"database/sql"
 )
 
-type BlocksP struct {
-	Idx      int64
-	ID       string
-	Bytes    []byte
-	Decoded  int64
-	TypeID   sql.NullInt64
-	Height   sql.NullInt64
-	Ts       sql.NullInt64
-	ParentID sql.NullString
+type RawBlocksP struct {
+	Idx   int64
+	Bytes []byte
 }
 
 type TxsP struct {
 	ID               string
+	Height           int64
 	BlockID          string
 	TypeID           int64
 	UnsignedTx       string
+	UnsignedBytes    string
+	SigBytes         string
+	SignerAddrP      string
+	SignerAddrC      string
+	Ts               int64
 	Memo             sql.NullString
 	NodeID           sql.NullString
 	ValidatorStartTs sql.NullInt64
@@ -31,12 +31,10 @@ type TxsP struct {
 	ValidatorWeight  sql.NullInt64
 	SourceChain      sql.NullString
 	DestinationChain sql.NullString
-	OutputAddrs      sql.NullString
-	StakeAddrs       sql.NullString
-	RewardsAddrs     sql.NullString
+	RewardsAddr      sql.NullString
 }
 
-type TypeID struct {
+type Type struct {
 	ID   int64
 	Name string
 }

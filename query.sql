@@ -1,31 +1,18 @@
--- name: GetBlockP :one
-SELECT * FROM blocks_p
+-- name: GetRawBlockP :one
+SELECT * FROM raw_blocks_p
 WHERE idx = ? LIMIT 1;
 
--- name: ListBlocksP :many
-SELECT * FROM blocks_p;
-
--- name: CreateBlockP :exec
-INSERT OR IGNORE INTO blocks_p (
-  idx, id, bytes, decoded, type_id, height, ts, parent_id
+-- name: CreateRawBlockP :exec
+INSERT OR IGNORE INTO raw_blocks_p (
+  idx, bytes
 ) VALUES (
-  ?, ?, ?, ?, ?, ?, ?, ?
+  ?, ?
 );
-
--- name: UpdateBlockP :exec
-UPDATE blocks_p
-SET 
-  decoded = ?,
-  type_id = ?,
-  height = ?,
-  ts = ?,
-  parent_id = ?
-WHERE idx = ?;
 
 -- name: CreateTxP :exec
 INSERT OR IGNORE INTO txs_p (
-  id, block_id, type_id, unsigned_tx
+  id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
 ) VALUES (
-  ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
 

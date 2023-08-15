@@ -40,10 +40,10 @@ where type_id = 14 -- AddValidatorTx
 group by node_id
 order by count desc;
 
-select count(*) count, rewards_addrs
+select count(*) count, rewards_addr
 from txs_p
 where type_id = 14 -- AddValidatorTx
-group by rewards_addrs
+group by rewards_addr
 order by count desc
 
 ```

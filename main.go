@@ -14,8 +14,14 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/utils/formatting"
+	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 	"github.com/ava-labs/avalanchego/vms/proposervm/block"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
+	"github.com/ava-labs/coreth/plugin/evm"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/multisig-labs/slurp/pkg/db"
 	"github.com/multisig-labs/slurp/pkg/uploads3"
@@ -26,11 +32,12 @@ import (
 )
 
 func main() {
-	defer panicHandler()
+	defer handlePanic()
 	gargs = &GlobalArgs{}
 	mcli.SetGlobalFlags(gargs)
 	mcli.Add("pchain", pchainCmd, "Slurp the P-Chain using Index API")
 	mcli.Add("process-p", processPCmd, "Process the raw P-Chain blocks")
+
 	mcli.Add("upload", uploadS3Cmd, "Upload file to S3 bucket")
 	mcli.AddHelp()
 	mcli.AddCompletion()
@@ -38,6 +45,7 @@ func main() {
 }
 
 var gargs *GlobalArgs
+var factory secp256k1.Factory
 
 type GlobalArgs struct {
 	NodeURL   string `cli:"--node-url, Avalanche node URL" default:"http://localhost:9650"`
@@ -64,24 +72,18 @@ func uploadS3Cmd() {
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
 	err := uploads3.UploadS3(awsKey, awsSecret, args.Region, args.Bucket, args.Filename)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	handleError(err)
 }
 
 func pchainCmd() {
 	args := struct {
 		StartIdx   uint64 `cli:"startIdx, starting index number to fetch"`
-		NumToFetch int64  `cli:"#R, NumToFetch, number of blocks to fetch"`
+		NumToFetch int64  `cli:"#R, numToFetch, number of blocks to fetch"`
 	}{}
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
 	err := fetchBlocksP(gargs.DbFile, gargs.NodeURL, args.StartIdx, args.NumToFetch, gargs.BatchSize)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	handleError(err)
 }
 
 func processPCmd() {
@@ -92,10 +94,7 @@ func processPCmd() {
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
 	err := processBlocksP(gargs.DbFile, gargs.NodeURL, args.StartIdx, args.NumToProcess)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	handleError(err)
 }
 
 func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToProcess int64) error {
@@ -109,7 +108,7 @@ func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToPro
 		if idx%1000 == 0 {
 			fmt.Println("Processing", idx)
 		}
-		dbBlk, err := queries.GetBlockP(ctx, idx)
+		dbBlk, err := queries.GetRawBlockP(ctx, idx)
 		if err != nil {
 			return err
 		}
@@ -121,50 +120,74 @@ func processBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToPro
 			return err
 		}
 
-		if dbBlk.Decoded == 0 {
-			// Save additional info decoded from bytes to block_p table
-			height := blk.Height()
-			parentId := blk.Parent().String()
-			typeId := parseTypeID(dbBlk.Bytes)
-			// Only Banff blocks have time, so just use json to grab it if it exists
-			ts := gjson.Get(js, "time").Int()
-			p := db.UpdateBlockPParams{
-				Decoded:  1,
-				TypeID:   sql.NullInt64{Valid: true, Int64: typeId},
-				Height:   sql.NullInt64{Valid: true, Int64: int64(height)},
-				Ts:       sql.NullInt64{Valid: true, Int64: ts},
-				ParentID: sql.NullString{Valid: true, String: parentId},
-				Idx:      idx,
-			}
-
-			err = queries.UpdateBlockP(ctx, p)
-			if err != nil {
-				fmt.Printf("error updating idx %d: %v\n", idx, err)
-				return err
-			}
-		}
-
+		height := blk.Height()
+		ts := gjson.Get(js, "time").Int()
+		// FYI Not all blocks have txs, and some blocks have more than one tx
 		// We are inserting the marshaled JSON and letting SQLite destructure via generated columns
 		txs := gjson.Get(js, "tx*")
 		if len(txs.Array()) > 0 {
 			for j, tx := range txs.Array() {
 				txid := tx.Get("id").String()
 				txjs := tx.Get("unsignedTx").String()
-				p := db.CreateTxPParams{
-					ID:         txid,
-					BlockID:    dbBlk.ID,
-					TypeID:     parseTypeID(blk.Txs()[j].Bytes()),
-					UnsignedTx: txjs,
-				}
-				err := queries.CreateTxP(ctx, p)
+				unsignedBytes := blk.Txs()[j].Unsigned.Bytes()
+				unsignedBytesHex, err := formatting.Encode(formatting.Hex, unsignedBytes)
 				if err != nil {
-					fmt.Printf("error creating txid %s blkid %s %v\n", txid, dbBlk.ID, err)
+					fmt.Printf("error encoding unsignedBytesHex txid: %s err: %v\n", txid, err)
+					continue
+				}
+
+				// Look for signatures, and recover public key
+				sigBytes := [65]byte{}
+				sigBytesHex := ""
+				recoveredAddrP := ""
+				recoveredAddrC := ""
+
+				creds := blk.Txs()[j].Creds
+				if len(creds) > 0 {
+					sigBytes = blk.Txs()[j].Creds[0].(*secp256k1fx.Credential).Sigs[0]
+					sigBytesHex, _ = formatting.Encode(formatting.Hex, sigBytes[:])
+					recoveredAddrP, recoveredAddrC, err = recoverAddrs(unsignedBytes, sigBytes)
+					if err != nil {
+						fmt.Printf("error recoverAddrs txid: %s err: %v\n", txid, err)
+					}
+				}
+
+				p := db.CreateTxPParams{
+					ID:            txid,
+					Height:        int64(height),
+					BlockID:       blk.ID().String(),
+					TypeID:        parseTypeID(blk.Txs()[j].Bytes()),
+					Ts:            int64(ts),
+					UnsignedTx:    txjs,
+					UnsignedBytes: unsignedBytesHex,
+					SigBytes:      sigBytesHex,
+					SignerAddrP:   recoveredAddrP,
+					SignerAddrC:   recoveredAddrC,
+				}
+				err = queries.CreateTxP(ctx, p)
+				if err != nil {
+					fmt.Printf("error creating txid %s blkid %s %v\n", txid, blk.ID().String(), err)
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// Recover the P and C chain addrs from a tx sig
+func recoverAddrs(unsignedBytes []byte, sigBytes [65]byte) (string, string, error) {
+	txHash := hashing.ComputeHash256(unsignedBytes)
+	pk, err := factory.RecoverHashPublicKey(txHash, sigBytes[:])
+	if err != nil {
+		return "", "", err
+	}
+	recoveredAddrP, err := address.FormatBech32("avax", pk.Address().Bytes())
+	if err != nil {
+		return "", "", err
+	}
+	recoveredAddrC := evm.PublicKeyToEthAddress(pk).String()
+	return recoveredAddrP, recoveredAddrC, nil
 }
 
 func decodeBlock(ctx *snow.Context, b []byte) (blocks.Block, string, error) {
@@ -215,18 +238,13 @@ func fetchBlocksP(dbFileName string, nodeURL string, startIdx uint64, numToFetch
 		batchStartIdx := startIdx + (uint64(batchSize) * uint64(batch))
 		fmt.Printf("batch: %d  batchStartIdx: %d\n", batch, batchStartIdx)
 		batchOfBlocks, err := c.GetContainerRange(context.Background(), batchStartIdx, int(batchSize))
-		if err != nil {
-			fmt.Printf("error %v\n", err)
-			os.Exit(2)
-		}
+		handleError(err)
 
 		for i, bk := range batchOfBlocks {
 			idx := batchStartIdx + uint64(i)
-			err := queries.CreateBlockP(ctx, db.CreateBlockPParams{
-				Idx:     int64(idx),
-				ID:      bk.ID.String(),
-				Bytes:   bk.Bytes,
-				Decoded: 0,
+			err := queries.CreateRawBlockP(ctx, db.CreateRawBlockPParams{
+				Idx:   int64(idx),
+				Bytes: bk.Bytes,
 			})
 			if err != nil {
 				fmt.Printf("error inserting block: %v\n", err)
@@ -263,13 +281,9 @@ func genMainnetCtx() *snow.Context {
 
 func openDB(dbFileName string) (*sql.DB, *db.Queries) {
 	dbFile, err := sql.Open("sqlite3", dbFileName)
-	if err != nil {
-		panic(err)
-	}
+	handleError(err)
 	_, err = dbFile.Exec("PRAGMA optimize;PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;")
-	if err != nil {
-		panic(err)
-	}
+	handleError(err)
 	return dbFile, db.New(dbFile)
 }
 
@@ -279,7 +293,14 @@ func parseTypeID(b []byte) int64 {
 	return result
 }
 
-func panicHandler() {
+func handleError(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func handlePanic() {
 	if panicPayload := recover(); panicPayload != nil {
 		stack := string(debug.Stack())
 		fmt.Fprintln(os.Stderr, "================================================================================")

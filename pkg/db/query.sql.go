@@ -7,152 +7,71 @@ package db
 
 import (
 	"context"
-	"database/sql"
 )
 
-const createBlockP = `-- name: CreateBlockP :exec
-INSERT OR IGNORE INTO blocks_p (
-  idx, id, bytes, decoded, type_id, height, ts, parent_id
+const createRawBlockP = `-- name: CreateRawBlockP :exec
+INSERT OR IGNORE INTO raw_blocks_p (
+  idx, bytes
 ) VALUES (
-  ?, ?, ?, ?, ?, ?, ?, ?
+  ?, ?
 )
 `
 
-type CreateBlockPParams struct {
-	Idx      int64
-	ID       string
-	Bytes    []byte
-	Decoded  int64
-	TypeID   sql.NullInt64
-	Height   sql.NullInt64
-	Ts       sql.NullInt64
-	ParentID sql.NullString
+type CreateRawBlockPParams struct {
+	Idx   int64
+	Bytes []byte
 }
 
-func (q *Queries) CreateBlockP(ctx context.Context, arg CreateBlockPParams) error {
-	_, err := q.db.ExecContext(ctx, createBlockP,
-		arg.Idx,
-		arg.ID,
-		arg.Bytes,
-		arg.Decoded,
-		arg.TypeID,
-		arg.Height,
-		arg.Ts,
-		arg.ParentID,
-	)
+func (q *Queries) CreateRawBlockP(ctx context.Context, arg CreateRawBlockPParams) error {
+	_, err := q.db.ExecContext(ctx, createRawBlockP, arg.Idx, arg.Bytes)
 	return err
 }
 
 const createTxP = `-- name: CreateTxP :exec
 INSERT OR IGNORE INTO txs_p (
-  id, block_id, type_id, unsigned_tx
+  id, height, block_id, type_id, unsigned_tx, unsigned_bytes, sig_bytes, signer_addr_p, signer_addr_c, ts
 ) VALUES (
-  ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
 type CreateTxPParams struct {
-	ID         string
-	BlockID    string
-	TypeID     int64
-	UnsignedTx string
+	ID            string
+	Height        int64
+	BlockID       string
+	TypeID        int64
+	UnsignedTx    string
+	UnsignedBytes string
+	SigBytes      string
+	SignerAddrP   string
+	SignerAddrC   string
+	Ts            int64
 }
 
 func (q *Queries) CreateTxP(ctx context.Context, arg CreateTxPParams) error {
 	_, err := q.db.ExecContext(ctx, createTxP,
 		arg.ID,
+		arg.Height,
 		arg.BlockID,
 		arg.TypeID,
 		arg.UnsignedTx,
+		arg.UnsignedBytes,
+		arg.SigBytes,
+		arg.SignerAddrP,
+		arg.SignerAddrC,
+		arg.Ts,
 	)
 	return err
 }
 
-const getBlockP = `-- name: GetBlockP :one
-SELECT idx, id, bytes, decoded, type_id, height, ts, parent_id FROM blocks_p
+const getRawBlockP = `-- name: GetRawBlockP :one
+SELECT idx, bytes FROM raw_blocks_p
 WHERE idx = ? LIMIT 1
 `
 
-func (q *Queries) GetBlockP(ctx context.Context, idx int64) (BlocksP, error) {
-	row := q.db.QueryRowContext(ctx, getBlockP, idx)
-	var i BlocksP
-	err := row.Scan(
-		&i.Idx,
-		&i.ID,
-		&i.Bytes,
-		&i.Decoded,
-		&i.TypeID,
-		&i.Height,
-		&i.Ts,
-		&i.ParentID,
-	)
+func (q *Queries) GetRawBlockP(ctx context.Context, idx int64) (RawBlocksP, error) {
+	row := q.db.QueryRowContext(ctx, getRawBlockP, idx)
+	var i RawBlocksP
+	err := row.Scan(&i.Idx, &i.Bytes)
 	return i, err
-}
-
-const listBlocksP = `-- name: ListBlocksP :many
-SELECT idx, id, bytes, decoded, type_id, height, ts, parent_id FROM blocks_p
-`
-
-func (q *Queries) ListBlocksP(ctx context.Context) ([]BlocksP, error) {
-	rows, err := q.db.QueryContext(ctx, listBlocksP)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BlocksP
-	for rows.Next() {
-		var i BlocksP
-		if err := rows.Scan(
-			&i.Idx,
-			&i.ID,
-			&i.Bytes,
-			&i.Decoded,
-			&i.TypeID,
-			&i.Height,
-			&i.Ts,
-			&i.ParentID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateBlockP = `-- name: UpdateBlockP :exec
-UPDATE blocks_p
-SET 
-  decoded = ?,
-  type_id = ?,
-  height = ?,
-  ts = ?,
-  parent_id = ?
-WHERE idx = ?
-`
-
-type UpdateBlockPParams struct {
-	Decoded  int64
-	TypeID   sql.NullInt64
-	Height   sql.NullInt64
-	Ts       sql.NullInt64
-	ParentID sql.NullString
-	Idx      int64
-}
-
-func (q *Queries) UpdateBlockP(ctx context.Context, arg UpdateBlockPParams) error {
-	_, err := q.db.ExecContext(ctx, updateBlockP,
-		arg.Decoded,
-		arg.TypeID,
-		arg.Height,
-		arg.Ts,
-		arg.ParentID,
-		arg.Idx,
-	)
-	return err
 }
