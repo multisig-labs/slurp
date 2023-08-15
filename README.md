@@ -44,6 +44,18 @@ select count(*) count, rewards_addr
 from txs_p
 where type_id = 14 -- AddValidatorTx
 group by rewards_addr
-order by count desc
+order by count desc;
+
+select count(*) as count, signer_addr_p
+from txs_p
+where signer_addr_p != ""
+group by signer_addr_p
+order by count desc;
+
+select count(*) as count, signer_addr_c
+from txs_p
+where signer_addr_c != ""
+group by signer_addr_c
+order by count desc;
 
 ```
