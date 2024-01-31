@@ -1,4 +1,4 @@
-CREATE TABLE raw_blocks_p 
+CREATE TABLE raw_blocks_p
 -- Raw P-Chain block bytes by index, other tables are generated from this one
 (
   idx integer PRIMARY KEY, -- index of the block in a particular node's index
@@ -45,36 +45,36 @@ CREATE TABLE types (
   name text NOT NULL
 ) STRICT, WITHOUT ROWID;
 
-INSERT INTO types (id, name) VALUES (0,  "ApricotProposalBlock");
-INSERT INTO types (id, name) VALUES (1,  "ApricotAbortBlock");
-INSERT INTO types (id, name) VALUES (2,  "ApricotCommitBlock");
-INSERT INTO types (id, name) VALUES (3,  "ApricotStandardBlock");
-INSERT INTO types (id, name) VALUES (4,  "ApricotAtomicBlock");
-INSERT INTO types (id, name) VALUES (5,  "secp256k1fx.TransferInput");
-INSERT INTO types (id, name) VALUES (6,  "secp256k1fx.MintOutput");
-INSERT INTO types (id, name) VALUES (7,  "secp256k1fx.TransferOutput");
-INSERT INTO types (id, name) VALUES (8,  "secp256k1fx.MintOperation");
-INSERT INTO types (id, name) VALUES (9,  "secp256k1fx.Credential");
-INSERT INTO types (id, name) VALUES (10, "secp256k1fx.Input");
-INSERT INTO types (id, name) VALUES (11, "secp256k1fx.OutputOwners");
-INSERT INTO types (id, name) VALUES (12, "AddValidatorTx");
-INSERT INTO types (id, name) VALUES (13, "AddSubnetValidatorTx");
-INSERT INTO types (id, name) VALUES (14, "AddDelegatorTx");
-INSERT INTO types (id, name) VALUES (15, "CreateChainTx");
-INSERT INTO types (id, name) VALUES (16, "CreateSubnetTx");
-INSERT INTO types (id, name) VALUES (17, "ImportTx");
-INSERT INTO types (id, name) VALUES (18, "ExportTx");
-INSERT INTO types (id, name) VALUES (19, "AdvanceTimeTx");
-INSERT INTO types (id, name) VALUES (20, "RewardValidatorTx");
-INSERT INTO types (id, name) VALUES (21, "stakeable.LockIn");
-INSERT INTO types (id, name) VALUES (22, "stakeable.LockOut");
-INSERT INTO types (id, name) VALUES (23, "RemoveSubnetValidatorTx");
-INSERT INTO types (id, name) VALUES (24, "TransformSubnetTx");
-INSERT INTO types (id, name) VALUES (25, "AddPermissionlessValidatorTx");
-INSERT INTO types (id, name) VALUES (26, "AddPermissionlessDelegatorTx");
-INSERT INTO types (id, name) VALUES (27, "EmptyProofOfPossession");
-INSERT INTO types (id, name) VALUES (28, "BLSProofOfPossession  ");
-INSERT INTO types (id, name) VALUES (29, "BanffProposalBlock");
-INSERT INTO types (id, name) VALUES (30, "BanffAbortBlock");
-INSERT INTO types (id, name) VALUES (31, "BanffCommitBlock");
-INSERT INTO types (id, name) VALUES (32, "BanffStandardBlock");
+INSERT INTO types (id, name) VALUES (0,  'ApricotProposalBlock');
+INSERT INTO types (id, name) VALUES (1,  'ApricotAbortBlock');
+INSERT INTO types (id, name) VALUES (2,  'ApricotCommitBlock');
+INSERT INTO types (id, name) VALUES (3,  'ApricotStandardBlock');
+INSERT INTO types (id, name) VALUES (4,  'ApricotAtomicBlock');
+INSERT INTO types (id, name) VALUES (5,  'secp256k1fx.TransferInput');
+INSERT INTO types (id, name) VALUES (6,  'secp256k1fx.MintOutput');
+INSERT INTO types (id, name) VALUES (7,  'secp256k1fx.TransferOutput');
+INSERT INTO types (id, name) VALUES (8,  'secp256k1fx.MintOperation');
+INSERT INTO types (id, name) VALUES (9,  'secp256k1fx.Credential');
+INSERT INTO types (id, name) VALUES (10, 'secp256k1fx.Input');
+INSERT INTO types (id, name) VALUES (11, 'secp256k1fx.OutputOwners');
+INSERT INTO types (id, name) VALUES (12, 'AddValidatorTx');
+INSERT INTO types (id, name) VALUES (13, 'AddSubnetValidatorTx');
+INSERT INTO types (id, name) VALUES (14, 'AddDelegatorTx');
+INSERT INTO types (id, name) VALUES (15, 'CreateChainTx');
+INSERT INTO types (id, name) VALUES (16, 'CreateSubnetTx');
+INSERT INTO types (id, name) VALUES (17, 'ImportTx');
+INSERT INTO types (id, name) VALUES (18, 'ExportTx');
+INSERT INTO types (id, name) VALUES (19, 'AdvanceTimeTx');
+INSERT INTO types (id, name) VALUES (20, 'RewardValidatorTx');
+INSERT INTO types (id, name) VALUES (21, 'stakeable.LockIn');
+INSERT INTO types (id, name) VALUES (22, 'stakeable.LockOut');
+INSERT INTO types (id, name) VALUES (23, 'RemoveSubnetValidatorTx');
+INSERT INTO types (id, name) VALUES (24, 'TransformSubnetTx');
+INSERT INTO types (id, name) VALUES (25, 'AddPermissionlessValidatorTx');
+INSERT INTO types (id, name) VALUES (26, 'AddPermissionlessDelegatorTx');
+INSERT INTO types (id, name) VALUES (27, 'EmptyProofOfPossession');
+INSERT INTO types (id, name) VALUES (28, 'BLSProofOfPossession  ');
+INSERT INTO types (id, name) VALUES (29, 'BanffProposalBlock');
+INSERT INTO types (id, name) VALUES (30, 'BanffAbortBlock');
+INSERT INTO types (id, name) VALUES (31, 'BanffCommitBlock');
+INSERT INTO types (id, name) VALUES (32, 'BanffStandardBlock');
