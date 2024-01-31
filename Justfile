@@ -17,7 +17,7 @@ install: build
 
 # Delete and recreate a sqlite db
 create-db:
-	-trash -v slurp.db*
+	rm -vf slurp.db*
 	cat schema.sql | sqlite3 slurp.db
 
 dev-get:
@@ -25,5 +25,3 @@ dev-get:
 
 dev-process:
   bin/slurp process-p 6500000 10000
-	
-
