@@ -73,8 +73,12 @@ INSERT INTO types (id, name) VALUES (24, 'TransformSubnetTx');
 INSERT INTO types (id, name) VALUES (25, 'AddPermissionlessValidatorTx');
 INSERT INTO types (id, name) VALUES (26, 'AddPermissionlessDelegatorTx');
 INSERT INTO types (id, name) VALUES (27, 'EmptyProofOfPossession');
-INSERT INTO types (id, name) VALUES (28, 'BLSProofOfPossession  ');
+INSERT INTO types (id, name) VALUES (28, 'BLSProofOfPossession');
 INSERT INTO types (id, name) VALUES (29, 'BanffProposalBlock');
 INSERT INTO types (id, name) VALUES (30, 'BanffAbortBlock');
 INSERT INTO types (id, name) VALUES (31, 'BanffCommitBlock');
 INSERT INTO types (id, name) VALUES (32, 'BanffStandardBlock');
+INSERT INTO types (id, name) VALUES (33, 'IncreaseL1ValidatorBalanceTx');
+INSERT INTO types (id, name) VALUES (33, 'BaseTx');
+INSERT INTO types (id, name) VALUES (34, 'RegisterL1ValidatorTx');
+

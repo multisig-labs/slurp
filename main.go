@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"runtime/debug"
@@ -14,17 +17,16 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/utils/cb58"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/formatting"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
 	"github.com/ava-labs/avalanchego/utils/hashing"
-	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
-	"github.com/ava-labs/avalanchego/vms/proposervm/block"
+	"github.com/ava-labs/avalanchego/vms/platformvm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/coreth/plugin/evm"
+	"github.com/ethereum/go-ethereum/crypto"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/multisig-labs/slurp/pkg/db"
-	"github.com/multisig-labs/slurp/pkg/uploads3"
 	"github.com/tidwall/gjson"
 
 	"github.com/jxskiss/mcli"
@@ -45,7 +47,6 @@ func main() {
 }
 
 var gargs *GlobalArgs
-var factory secp256k1.Factory
 
 type GlobalArgs struct {
 	NodeURL   string `cli:"--node-url, Avalanche node URL" default:"http://localhost:9650"`
@@ -54,25 +55,25 @@ type GlobalArgs struct {
 }
 
 func uploadS3Cmd() {
-	var awsKey, awsSecret string
-	var found bool
+	// var awsKey, awsSecret string
+	// var found bool
 
-	if awsKey, found = os.LookupEnv("AWS_ACCESS_KEY_ID"); !found {
-		panic("Missing ENV AWS_ACCESS_KEY_ID")
-	}
-	if awsSecret, found = os.LookupEnv("AWS_SECRET_ACCESS_KEY"); !found {
-		panic("Missing ENV AWS_SECRET_ACCESS_KEY")
-	}
+	// if awsKey, found = os.LookupEnv("AWS_ACCESS_KEY_ID"); !found {
+	// 	panic("Missing ENV AWS_ACCESS_KEY_ID")
+	// }
+	// if awsSecret, found = os.LookupEnv("AWS_SECRET_ACCESS_KEY"); !found {
+	// 	panic("Missing ENV AWS_SECRET_ACCESS_KEY")
+	// }
 
-	args := struct {
-		Region   string `cli:"region, S3 region"`
-		Bucket   string `cli:"bucket, S3 bucket"`
-		Filename string `cli:"filename, Filename to upload"`
-	}{}
-	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
+	// args := struct {
+	// 	Region   string `cli:"region, S3 region"`
+	// 	Bucket   string `cli:"bucket, S3 bucket"`
+	// 	Filename string `cli:"filename, Filename to upload"`
+	// }{}
+	// mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
-	err := uploads3.UploadS3(awsKey, awsSecret, args.Region, args.Bucket, args.Filename)
-	handleError(err)
+	// err := uploads3.UploadS3(awsKey, awsSecret, args.Region, args.Bucket, args.Filename)
+	// handleError(err)
 }
 
 func pchainCmd() {
@@ -184,19 +185,18 @@ func processBlocksP(dbFileName string, startIdx uint64, numToProcess int64) erro
 // Recover the P and C chain addrs from a tx sig
 func recoverAddrs(unsignedBytes []byte, sigBytes [65]byte) (string, string, error) {
 	txHash := hashing.ComputeHash256(unsignedBytes)
-	pk, err := factory.RecoverHashPublicKey(txHash, sigBytes[:])
+	pk, err := secp256k1.RecoverPublicKeyFromHash(txHash, sigBytes[:])
 	if err != nil {
 		return "", "", err
 	}
-	recoveredAddrP, err := address.FormatBech32("avax", pk.Address().Bytes())
+	recoveredAddrP, recoveredAddrC, err := ParsePrivateKeyToAddresses(fmt.Sprintf("0x%x", pk.Bytes()), "mainnet")
 	if err != nil {
 		return "", "", err
 	}
-	recoveredAddrC := evm.PublicKeyToEthAddress(pk).String()
 	return recoveredAddrP, recoveredAddrC, nil
 }
 
-func decodeBlock(ctx *snow.Context, b []byte) (blocks.Block, string, error) {
+func decodeBlock(ctx *snow.Context, b []byte) (block.Block, string, error) {
 	decoded := decodeProposerBlock(b)
 
 	blk, js, err := decodeInnerBlock(ctx, decoded)
@@ -208,15 +208,15 @@ func decodeBlock(ctx *snow.Context, b []byte) (blocks.Block, string, error) {
 
 // Tries to decode as proposal block (post-Banff) if it fails just return the original bytes
 func decodeProposerBlock(b []byte) []byte {
-	innerBlk, err := block.Parse(b)
+	innerBlk, err := block.Parse(block.GenesisCodec, b)
 	if err != nil {
 		return b
 	}
-	return innerBlk.Block()
+	return innerBlk.Bytes()
 }
 
-func decodeInnerBlock(ctx *snow.Context, b []byte) (blocks.Block, string, error) {
-	res, err := blocks.Parse(blocks.GenesisCodec, b)
+func decodeInnerBlock(ctx *snow.Context, b []byte) (block.Block, string, error) {
+	res, err := block.Parse(block.GenesisCodec, b)
 	if err != nil {
 		return res, "", fmt.Errorf("blocks.Parse error: %w", err)
 	}
@@ -323,4 +323,45 @@ func handlePanic() {
 		fmt.Fprintln(os.Stderr, stack)
 		os.Exit(1)
 	}
+}
+
+// Support PrivateKey-(cb58) or hex string with optional 0x prefix
+func ParsePrivateKey(pkStr string) (avaKey *secp256k1.PrivateKey, ethKey *ecdsa.PrivateKey, err error) {
+	var pkBytes []byte
+	if strings.HasPrefix(pkStr, "PrivateKey-") {
+		pkBytes, err = cb58.Decode(strings.TrimPrefix(pkStr, "PrivateKey-"))
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		pkBytes, err = hex.DecodeString(strings.TrimPrefix(pkStr, "0x"))
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	avaKey, err = secp256k1.ToPrivateKey(pkBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	ethKey, err = crypto.HexToECDSA(fmt.Sprintf("%x", pkBytes))
+	if err != nil {
+		return nil, nil, err
+	}
+	return avaKey, ethKey, nil
+}
+
+// Parse a private key and return the ava and eth addresses
+// network is the network name (mainnet, fuji, etc)
+func ParsePrivateKeyToAddresses(privateKeyStr string, network string) (string, string, error) {
+	pchainKey, ethKey, err := ParsePrivateKey(privateKeyStr)
+	if err != nil {
+		return "", "", err
+	}
+	avaAddr, err := address.Format("P", network, pchainKey.PublicKey().Address().Bytes())
+	if err != nil {
+		return "", "", err
+	}
+	ethAddr := crypto.PubkeyToAddress(ethKey.PublicKey)
+
+	return avaAddr, ethAddr.String(), nil
 }
